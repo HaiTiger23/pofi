@@ -154,6 +154,133 @@ const createWindow = async () => {
       }
       return true;
     });
+    
+    // Thêm phương thức để bắt đầu bộ đếm thời gian trong main process
+    ipcMain.handle('start-pomodoro-timer', (event, minutes, seconds, isBreak) => {
+      global.pomodoroTimer = {
+        minutes: minutes,
+        seconds: seconds,
+        isBreak: isBreak,
+        interval: null,
+        isRunning: false
+      };
+      
+      // Xóa bộ đếm thời gian cũ nếu có
+      if (global.pomodoroTimer.interval) {
+        clearInterval(global.pomodoroTimer.interval);
+      }
+      
+      // Cập nhật badge ban đầu
+      if (process.platform === 'darwin') {
+        const timeText = (global.pomodoroTimer.minutes < 10 ? '0' : '') + global.pomodoroTimer.minutes + 'm';
+        if (isBreak) {
+          app.dock.setBadge('☕ ' + timeText);
+        } else {
+          app.dock.setBadge('⏱ ' + timeText);
+        }
+      }
+      
+      // Bắt đầu bộ đếm thời gian
+      global.pomodoroTimer.isRunning = true;
+      global.pomodoroTimer.interval = setInterval(() => {
+        if (global.pomodoroTimer.seconds === 0) {
+          if (global.pomodoroTimer.minutes === 0) {
+            // Hết thời gian
+            clearInterval(global.pomodoroTimer.interval);
+            global.pomodoroTimer.isRunning = false;
+            if (process.platform === 'darwin') {
+              app.dock.setBadge('');
+            }
+            return;
+          }
+          global.pomodoroTimer.minutes--;
+          global.pomodoroTimer.seconds = 59;
+        } else {
+          global.pomodoroTimer.seconds--;
+        }
+        
+        // Cập nhật badge mỗi phút hoặc khi giây = 0
+        if (process.platform === 'darwin' && (global.pomodoroTimer.seconds === 0 || global.pomodoroTimer.seconds === 59)) {
+          const timeText = (global.pomodoroTimer.minutes < 10 ? '0' : '') + global.pomodoroTimer.minutes + 'm';
+          if (global.pomodoroTimer.isBreak) {
+            app.dock.setBadge('☕ ' + timeText);
+          } else {
+            app.dock.setBadge('⏱ ' + timeText);
+          }
+        }
+      }, 1000);
+      
+      return true;
+    });
+    
+    // Thêm phương thức để dừng bộ đếm thời gian
+    ipcMain.handle('stop-pomodoro-timer', () => {
+      if (global.pomodoroTimer && global.pomodoroTimer.interval) {
+        clearInterval(global.pomodoroTimer.interval);
+        global.pomodoroTimer.isRunning = false;
+        if (process.platform === 'darwin') {
+          app.dock.setBadge('');
+        }
+      }
+      return true;
+    });
+    
+    // Thêm phương thức để tạm dừng bộ đếm thời gian
+    ipcMain.handle('pause-pomodoro-timer', () => {
+      if (global.pomodoroTimer && global.pomodoroTimer.interval) {
+        clearInterval(global.pomodoroTimer.interval);
+        global.pomodoroTimer.isRunning = false;
+      }
+      return true;
+    });
+    
+    // Thêm phương thức để tiếp tục bộ đếm thời gian
+    ipcMain.handle('resume-pomodoro-timer', () => {
+      if (global.pomodoroTimer && !global.pomodoroTimer.isRunning) {
+        global.pomodoroTimer.isRunning = true;
+        global.pomodoroTimer.interval = setInterval(() => {
+          if (global.pomodoroTimer.seconds === 0) {
+            if (global.pomodoroTimer.minutes === 0) {
+              // Hết thời gian
+              clearInterval(global.pomodoroTimer.interval);
+              global.pomodoroTimer.isRunning = false;
+              if (process.platform === 'darwin') {
+                app.dock.setBadge('');
+              }
+              return;
+            }
+            global.pomodoroTimer.minutes--;
+            global.pomodoroTimer.seconds = 59;
+          } else {
+            global.pomodoroTimer.seconds--;
+          }
+          
+          // Cập nhật badge mỗi phút hoặc khi giây = 0
+          if (process.platform === 'darwin' && (global.pomodoroTimer.seconds === 0 || global.pomodoroTimer.seconds === 59)) {
+            const timeText = (global.pomodoroTimer.minutes < 10 ? '0' : '') + global.pomodoroTimer.minutes + 'm';
+            if (global.pomodoroTimer.isBreak) {
+              app.dock.setBadge('☕ ' + timeText);
+            } else {
+              app.dock.setBadge('⏱ ' + timeText);
+            }
+          }
+        }, 1000);
+      }
+      return true;
+    });
+    
+    // Thêm phương thức để lấy trạng thái hiện tại của bộ đếm thời gian
+    ipcMain.handle('get-pomodoro-timer-status', () => {
+      if (global.pomodoroTimer) {
+        return {
+          minutes: global.pomodoroTimer.minutes,
+          seconds: global.pomodoroTimer.seconds,
+          isBreak: global.pomodoroTimer.isBreak,
+          isRunning: global.pomodoroTimer.isRunning
+        };
+      }
+      return null;
+    });
     // window.webContents.openDevTools();
     // Lấy vị trí hiện tại
   };

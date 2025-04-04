@@ -71,13 +71,16 @@ export default {
   },
   methods: {
     startTime() {
-      
-      if (this.time == "work") {
-        if (this.status == "ready" || this.status == "pause") {
-          this.titleHeader = "Completed at " + this.getFinishTime();
+      if (this.status != "break") {
+        if (this.status == "ready") {
           this.status = "running";
           this.TitleLeftBtn = "Pause";
-          this.runTime();
+          this.titleHeader = "Focus on your work";
+          
+          // Bắt đầu bộ đếm thời gian trong main process
+          window.electronAPI.startPomodoroTimer(this.minutes, this.seconds, false);
+          
+          // Vẫn giữ bộ đếm thời gian trong renderer process để cập nhật giao diện
           this.interval = setInterval(() => {
             this.runTime();
           }, 10);
@@ -85,10 +88,49 @@ export default {
           this.status = "pause";
           this.TitleLeftBtn = "Resume";
           this.titleHeader = "Don't pause for too long";
+          
+          // Tạm dừng bộ đếm thời gian trong main process
+          window.electronAPI.pausePomodoroTimer();
+          
           clearInterval(this.interval);
+        } else if (this.status == "pause") {
+          this.status = "running";
+          this.TitleLeftBtn = "Pause";
+          this.titleHeader = "Focus on your work";
+          
+          // Tiếp tục bộ đếm thời gian trong main process
+          window.electronAPI.resumePomodoroTimer();
+          
+          this.interval = setInterval(() => {
+            this.runTime();
+          }, 10);
         }
       } else {
         this.timeOut();
+      }
+      
+      // Định kỳ đồng bộ thời gian với main process
+      this.syncTimerWithMainProcess();
+    },
+    
+    // Đồng bộ thời gian với main process
+    async syncTimerWithMainProcess() {
+      if (this.status === "running") {
+        // Mỗi 5 giây, kiểm tra và đồng bộ thời gian với main process
+        this.syncInterval = setInterval(async () => {
+          const timerStatus = await window.electronAPI.getPomodoroTimerStatus();
+          if (timerStatus && this.status === "running") {
+            // Chỉ cập nhật nếu có sự khác biệt đáng kể
+            if (Math.abs(this.minutes - timerStatus.minutes) > 0 || 
+                Math.abs(this.seconds - timerStatus.seconds) > 5) {
+              this.minutes = timerStatus.minutes;
+              this.seconds = timerStatus.seconds;
+              this.updateDockBadge();
+            }
+          }
+        }, 5000);
+      } else if (this.syncInterval) {
+        clearInterval(this.syncInterval);
       }
     },
     runTime() {
@@ -102,6 +144,11 @@ export default {
           this.seconds--;
         }
         this.tichtac = 100
+        
+        // Cập nhật badge trên dock macOS chỉ khi phút thay đổi hoặc khi giây = 0
+        if (this.seconds === 0 || this.seconds === 59 || this.seconds === 58) {
+          this.updateDockBadge();
+        }
       }else {
         this.tichtac--;
       }
@@ -110,35 +157,62 @@ export default {
       if (this.status != "ready") {
         this.titleHeader = "Welcome to Pofi";
         clearInterval(this.interval);
+        
+        // Dừng bộ đếm thời gian trong main process
+        window.electronAPI.stopPomodoroTimer();
+        
+        // Dừng đồng bộ thời gian
+        if (this.syncInterval) {
+          clearInterval(this.syncInterval);
+        }
+        
         this.minutes = computed(() => this.store.getters.getDuration).value;
         this.seconds = 0;
         this.status = "ready";
         this.TitleLeftBtn = "Start";
+        
+        // Xóa badge khi dừng Pomodoro
+        window.electronAPI.updateDockBadge('');
       }
     },
 
     timeOut() {
-      if (this.time == "work") {
-        this.sendMessageToMain("Hết giờ", "Đến giờ nghỉ ngơi rồi bạn ơi", "finish");
-        // Gọi hàm pauseVideo khi thời gian làm việc kết thúc
-        if (this.pauseVideo && typeof this.pauseVideo === 'function') {
-          this.pauseVideo();
-        }
-        this.time = "break";
+      if (this.status == "running") {
+        // Kết thúc thời gian làm việc
         this.status = "break";
-        this.minutes = computed(
-          () => this.store.getters.getBreakDuration
-        ).value;
-        this.titleHeader = "Please come back at " + this.getFinishTime();
         this.TitleLeftBtn = "Skip";
-      } else {
-        this.sendMessageToMain("Hết giờ nghỉ", "Quay trở lại với công việc thôi nào", "start");
-        this.time = "work";
-        this.status = "running";
-        this.TitleLeftBtn = "Pause";
-        this.minutes = computed(() => this.store.getters.getDuration).value;
+        this.titleHeader = "Take a break!";
+        clearInterval(this.interval);
+        
+        // Dừng bộ đếm thời gian cũ trong main process
+        window.electronAPI.stopPomodoroTimer();
+        
+        this.minutes = computed(() => this.store.getters.getBreakDuration).value;
         this.seconds = 0;
-        this.titleHeader = "Completed at " + this.getFinishTime();
+        
+        // Bắt đầu bộ đếm thời gian mới trong main process cho thời gian nghỉ
+        window.electronAPI.startPomodoroTimer(this.minutes, this.seconds, true);
+        
+        this.interval = setInterval(() => {
+          this.runTime();
+        }, 10);
+        
+        // Đồng bộ thời gian với main process
+        this.syncTimerWithMainProcess();
+        
+        this.sendMessageToMain(
+          "Pofi",
+          "Đã hết thời gian làm việc, hãy nghỉ ngơi",
+          "info"
+        );
+      } else if (this.status == "break") {
+        // Kết thúc thời gian nghỉ
+        this.stopTime();
+        this.sendMessageToMain(
+          "Pofi",
+          "Đã hết thời gian nghỉ, hãy bắt đầu làm việc",
+          "info"
+        );
       }
     },
     printNumber(number) {
@@ -155,12 +229,24 @@ export default {
       return addTime.getHours() + ":" + addTime.getMinutes();
     },
     sendMessageToMain(title, content, type) {
-      let notification = {
-        title: title,
-        body: content,
-        type: type
+      if (window.electronAPI) {
+        window.electronAPI.sendNotification({
+          title,
+          content,
+          type,
+        });
       }
-      window.electronAPI.sendNotification(notification);
+    },
+    
+    // Cập nhật badge trên dock macOS
+    updateDockBadge() {
+      if (window.electronAPI && this.status !== 'ready') {
+        // Chỉ hiển thị số phút với dấu "m" ở cuối
+        const timeText = this.printNumber(this.minutes +1) + 'm';
+        // Truyền thông tin về trạng thái nghỉ ngơi
+        const isBreak = this.status === 'break';
+        window.electronAPI.updateDockBadge(timeText, isBreak);
+      }
     },
     
   },
