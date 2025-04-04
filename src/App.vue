@@ -16,7 +16,7 @@
       <div class="flex flex-col justify-between h-full relative">
         <SideBar></SideBar>
         <!-- Pomodoro -->
-        <PomoDoro></PomoDoro>
+        <PomoDoro :pauseVideo="pauseVideo"></PomoDoro>
         <!-- Music Play -->
         <div class="w-full min-h-[30%] px-5">
           <div class="text-white">
@@ -347,6 +347,13 @@ export default {
         this.volume = 0;
       } else {
         this.volume = this.oldVolume;
+      }
+    },
+    pauseVideo() {
+      if (this.videoStatus && this.videoStatusRun) {
+        this.videoStatusRun = false;
+        this.player.pauseVideo();
+        clearInterval(this.rangeFrameID);
       }
     },
   },
