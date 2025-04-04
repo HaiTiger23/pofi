@@ -244,7 +244,7 @@ export default {
     
     // Nếu chưa có API key trong localStorage, sử dụng API key mặc định
     if (!this.youtubeApiKey) {
-      this.youtubeApiKey = 'AIzaSyALf4_KV8Chd2sU27UZDURSbunca7PVBeo';
+      this.youtubeApiKey = '';
       localStorage.setItem('youtube_api_key', this.youtubeApiKey);
     }
   },
