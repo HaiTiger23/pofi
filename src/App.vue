@@ -18,7 +18,16 @@
           <button
             class="text-white text-sm px-5 py-2.5 -mr-2 mb-2"
             type="button"
+            @click="toggleTodo"
+            title="Danh sách công việc"
+          >
+            <i class="ri-task-line"></i>
+          </button>
+          <button
+            class="text-white text-sm px-5 py-2.5 -mr-2 mb-2"
+            type="button"
             @click="toggleFavorites"
+            title="Bài hát yêu thích"
           >
             <i class="ri-heart-line"></i>
           </button>
@@ -26,6 +35,7 @@
             class="text-white text-sm px-5 py-2.5 -mr-2 mb-2"
             type="button"
             @click="toggleHistory"
+            title="Lịch sử bài hát"
           >
             <i class="ri-history-line"></i>
           </button>
@@ -33,6 +43,7 @@
         </div>
         <SongHistory></SongHistory>
         <SongFavorites></SongFavorites>
+        <TodoList></TodoList>
         <!-- Pomodoro -->
         <PomoDoro :pauseVideo="pauseVideo"></PomoDoro>
         <!-- Music Play -->
@@ -161,6 +172,7 @@ import search from "./assets/js/search.js";
 import SideBar from "./components/SideBar.vue";
 import SongHistory from "./components/History.vue";
 import SongFavorites from "./components/Favorites.vue";
+import TodoList from "./components/toDoList.vue";
 import { useStore } from "vuex";
 export default {
   name: "App",
@@ -170,6 +182,7 @@ export default {
     PomoDoro,
     SongHistory,
     SongFavorites,
+    TodoList,
   },
 
   mounted() {
@@ -189,6 +202,8 @@ export default {
     window.addEventListener('play-favorite-song', this.handleFavoriteSong);
     // Lắng nghe sự kiện đóng danh sách yêu thích
     window.addEventListener('favorites-closed', this.handleCloseFavorites);
+    // Lắng nghe sự kiện đóng danh sách công việc
+    window.addEventListener('todo-closed', this.handleCloseTodo);
   },
   
   beforeUnmount() {
@@ -198,6 +213,7 @@ export default {
     window.removeEventListener('close-history', this.handleCloseHistory);
     window.removeEventListener('play-favorite-song', this.handleFavoriteSong);
     window.removeEventListener('favorites-closed', this.handleCloseFavorites);
+    window.removeEventListener('todo-closed', this.handleCloseTodo);
   },
 
 
@@ -211,6 +227,7 @@ export default {
       videoStatus: false,
       showHistory: false, // Trạng thái hiển thị lịch sử bài hát
       showFavorites: false, // Trạng thái hiển thị danh sách bài hát yêu thích
+      showTodo: false, // Trạng thái hiển thị danh sách công việc
       current_music: {
         title: "",
         videoId: "ukHK1GVyr0I",
@@ -419,10 +436,16 @@ export default {
     // Bật/tắt hiển thị lịch sử bài hát
     toggleHistory() {
       this.showHistory = !this.showHistory;
-      // Nếu đang mở danh sách yêu thích, đóng lại
+      // Nếu đang mở danh sách yêu thích hoặc todo, đóng lại
       if (this.showFavorites) {
         this.showFavorites = false;
         window.dispatchEvent(new CustomEvent('toggle-favorites', { 
+          detail: { show: false }
+        }));
+      }
+      if (this.showTodo) {
+        this.showTodo = false;
+        window.dispatchEvent(new CustomEvent('toggle-todo', { 
           detail: { show: false }
         }));
       }
@@ -444,10 +467,16 @@ export default {
     // Bật/tắt hiển thị danh sách bài hát yêu thích
     toggleFavorites() {
       this.showFavorites = !this.showFavorites;
-      // Nếu đang mở lịch sử, đóng lại
+      // Nếu đang mở lịch sử hoặc todo, đóng lại
       if (this.showHistory) {
         this.showHistory = false;
         window.dispatchEvent(new CustomEvent('toggle-history', { 
+          detail: { show: false }
+        }));
+      }
+      if (this.showTodo) {
+        this.showTodo = false;
+        window.dispatchEvent(new CustomEvent('toggle-todo', { 
           detail: { show: false }
         }));
       }
@@ -485,6 +514,33 @@ export default {
     // Kiểm tra xem bài hát có trong danh sách yêu thích không
     isFavorite(videoId) {
       return this.$store.getters.isFavorite(videoId);
+    },
+    
+    // Bật/tắt hiển thị danh sách công việc
+    toggleTodo() {
+      this.showTodo = !this.showTodo;
+      // Nếu đang mở danh sách yêu thích hoặc lịch sử, đóng lại
+      if (this.showFavorites) {
+        this.showFavorites = false;
+        window.dispatchEvent(new CustomEvent('toggle-favorites', { 
+          detail: { show: false }
+        }));
+      }
+      if (this.showHistory) {
+        this.showHistory = false;
+        window.dispatchEvent(new CustomEvent('toggle-history', { 
+          detail: { show: false }
+        }));
+      }
+      // Phát sự kiện để thông báo cho component TodoList
+      window.dispatchEvent(new CustomEvent('toggle-todo', { 
+        detail: { show: this.showTodo }
+      }));
+    },
+    
+    // Xử lý sự kiện đóng danh sách công việc
+    handleCloseTodo() {
+      this.showTodo = false;
     },
     muteVolume() {
       if (this.volume != 0) {
