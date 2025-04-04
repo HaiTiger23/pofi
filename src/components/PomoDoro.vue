@@ -102,6 +102,11 @@ export default {
           this.seconds--;
         }
         this.tichtac = 100
+        
+        // Cập nhật badge trên dock macOS chỉ khi phút thay đổi hoặc khi giây = 0
+        if (this.seconds === 0 || this.seconds === 59 || this.seconds === 58) {
+          this.updateDockBadge();
+        }
       }else {
         this.tichtac--;
       }
@@ -114,6 +119,9 @@ export default {
         this.seconds = 0;
         this.status = "ready";
         this.TitleLeftBtn = "Start";
+        
+        // Xóa badge khi dừng Pomodoro
+        window.electronAPI.updateDockBadge('');
       }
     },
 
@@ -155,12 +163,24 @@ export default {
       return addTime.getHours() + ":" + addTime.getMinutes();
     },
     sendMessageToMain(title, content, type) {
-      let notification = {
-        title: title,
-        body: content,
-        type: type
+      if (window.electronAPI) {
+        window.electronAPI.sendNotification({
+          title,
+          content,
+          type,
+        });
       }
-      window.electronAPI.sendNotification(notification);
+    },
+    
+    // Cập nhật badge trên dock macOS
+    updateDockBadge() {
+      if (window.electronAPI && this.status !== 'ready') {
+        // Chỉ hiển thị số phút với dấu "m" ở cuối
+        const timeText = this.printNumber(this.minutes +1) + 'm';
+        // Truyền thông tin về trạng thái nghỉ ngơi
+        const isBreak = this.status === 'break';
+        window.electronAPI.updateDockBadge(timeText, isBreak);
+      }
     },
     
   },

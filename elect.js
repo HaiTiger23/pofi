@@ -122,16 +122,37 @@ const createWindow = async () => {
         preload: path.join(__dirname, 'preload.js')
     }
     });
-    // Mặc định bật chế độ ghim cửa sổ
-    window.setAlwaysOnTop(true, "screen-saver");
     window.setMinimumSize(450, 300);
     // Sử dụng server web thay vì file local
     window.loadURL(`http://localhost:${PORT}/`);
     
     // Thêm phương thức để bật/tắt chế độ ghim cửa sổ
     ipcMain.handle('toggle-pin-window', (event, shouldPin) => {
-      window.setAlwaysOnTop(shouldPin, "screen-saver");
-      return shouldPin;
+      console.log('Toggle pin window:', shouldPin);
+      try {
+        if (!window.isDestroyed()) {
+          window.setAlwaysOnTop(shouldPin, "screen-saver");
+        }
+        return shouldPin;
+      } catch (error) {
+        console.error('Lỗi khi cập nhật trạng thái ghim cửa sổ:', error);
+        return false;
+      }
+    });
+    
+    // Thêm phương thức để cập nhật badge trên dock macOS
+    ipcMain.handle('update-dock-badge', (event, text, isBreak) => {
+      if (process.platform === 'darwin') {
+        // Thêm ký tự để phân biệt giữa làm việc và nghỉ ngơi
+        if (isBreak) {
+          // Thêm biểu tượng cho thời gian nghỉ
+          app.dock.setBadge('☕ ' + text); // Biểu tượng tách cà phê
+        } else {
+          // Thêm biểu tượng cho thời gian làm việc
+          app.dock.setBadge('⏱ ' + text); // Biểu tượng đồng hồ
+        }
+      }
+      return true;
     });
     // window.webContents.openDevTools();
     // Lấy vị trí hiện tại

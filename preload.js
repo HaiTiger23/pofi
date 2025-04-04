@@ -1,6 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-contextBridge.exposeInMainWorld('electronAPI', { // exposeInMainWorld :  đăng ký các đối tượng và hàm vào phạm vi toàn cục của Renderer Process.
+contextBridge.exposeInMainWorld('electronAPI', { 
     sendNotification: (data) => {
         ipcRenderer.send('notiFromRender', data);
     },
@@ -8,5 +8,7 @@ contextBridge.exposeInMainWorld('electronAPI', { // exposeInMainWorld :  đăng 
     chrome: () => process.versions.chrome,
     electron: () => process.versions.electron,
     // Thêm API để bật/tắt chế độ ghim cửa sổ
-    togglePinWindow: (shouldPin) => ipcRenderer.invoke('toggle-pin-window', shouldPin)
+    togglePinWindow: (shouldPin) => ipcRenderer.invoke('toggle-pin-window', shouldPin),
+    // Thêm API để cập nhật badge trên dock macOS
+    updateDockBadge: (text, isBreak) => ipcRenderer.invoke('update-dock-badge', text, isBreak)
 })
