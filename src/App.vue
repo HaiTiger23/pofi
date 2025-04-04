@@ -72,7 +72,7 @@
                     block: isSearch,
                     hidden: !isSearch,
                   }"
-                  placeholder="Enter to search"
+                  placeholder="Nhập link youtube hoặc từ khoá tìm kiếm"
                   v-model="input_search"
                 />
                 <div
@@ -204,6 +204,8 @@ export default {
     window.addEventListener('favorites-closed', this.handleCloseFavorites);
     // Lắng nghe sự kiện đóng danh sách công việc
     window.addEventListener('todo-closed', this.handleCloseTodo);
+    // Lắng nghe sự kiện khi API key YouTube thay đổi
+    window.addEventListener('youtube-api-key-updated', this.handleApiKeyUpdated);
   },
   
   beforeUnmount() {
@@ -214,6 +216,7 @@ export default {
     window.removeEventListener('play-favorite-song', this.handleFavoriteSong);
     window.removeEventListener('favorites-closed', this.handleCloseFavorites);
     window.removeEventListener('todo-closed', this.handleCloseTodo);
+    window.removeEventListener('youtube-api-key-updated', this.handleApiKeyUpdated);
   },
 
 
@@ -256,17 +259,30 @@ export default {
     Search(event) {
       if (event.key == "Enter") {
         let videoId = null;
-        if (this.input_search.indexOf("youtube.com/watch?v=") != -1) {
-          videoId = this.input_search.split("watch?v=")[1].split("&")[0];
+        const youtubeUrlPattern = /(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]{11})/;
+        const match = this.input_search.match(youtubeUrlPattern);
+
+        if (match) {
+          // Nếu là URL YouTube, lấy videoId từ URL
+          videoId = match[1];
         }
 
         if (videoId) {
+          // Phát nhạc ngay lập tức nếu là URL YouTube
           this.current_music.videoId = videoId;
           this.initPlayer(this.current_music.videoId);
         } else {
+          // Kiểm tra API key
+          const apiKey = localStorage.getItem('youtube_api_key') || "";
+          if (!apiKey) {
+            alert("Vui lòng nhập API key YouTube để thực hiện tìm kiếm.");
+            return;
+          }
+
+          // Thực hiện tìm kiếm nếu không phải URL YouTube
           search(
             {
-              apiKey: "AIzaSyALf4_KV8Chd2sU27UZDURSbunca7PVBeo",
+              apiKey: apiKey,
               term: this.input_search,
             },
             (reponse) => {
@@ -541,6 +557,11 @@ export default {
     // Xử lý sự kiện đóng danh sách công việc
     handleCloseTodo() {
       this.showTodo = false;
+    },
+    
+    handleApiKeyUpdated(event) {
+      console.log('YouTube API key đã được cập nhật:', event.detail.apiKey);
+      // Không cần làm gì thêm vì phương thức Search sẽ lấy API key mới từ localStorage
     },
     muteVolume() {
       if (this.volume != 0) {

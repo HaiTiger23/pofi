@@ -100,4 +100,4 @@ Pofi được phát triển bằng các công nghệ:
 
 ## Giấy phép
 
-Phát triển bởi [Tên tác giả] - © 2025
+Phát triển bởi Hải Dev - © 2025
