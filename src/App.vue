@@ -14,7 +14,17 @@
     backdrop-filter backdrop-blur-md bg-opacity-10 "
     >
       <div class="flex flex-col justify-between h-full relative">
-        <SideBar></SideBar>
+        <div class="flex justify-end">
+          <button
+            class="text-white text-sm px-5 py-2.5 -mr-2 mb-2"
+            type="button"
+            @click="toggleHistory"
+          >
+            <i class="ri-history-line"></i>
+          </button>
+          <SideBar></SideBar>
+        </div>
+        <SongHistory></SongHistory>
         <!-- Pomodoro -->
         <PomoDoro :pauseVideo="pauseVideo"></PomoDoro>
         <!-- Music Play -->
@@ -141,25 +151,39 @@ import PomoDoro from "./components/PomoDoro.vue";
 import ListVideos from "./components/ListVideos.vue";
 import search from "./assets/js/search.js";
 import SideBar from "./components/SideBar.vue";
+import SongHistory from "./components/History.vue";
+import { useStore } from "vuex";
 export default {
   name: "App",
   components: {
     ListVideos,
     SideBar,
     PomoDoro,
+    SongHistory,
   },
 
   mounted() {
+    this.store = useStore();
     let latestSong =  localStorage.getItem('latestSong');
     if(latestSong == null) {
       latestSong = 'DnewVhYNt-I';
     }
     this.current_music.videoId = latestSong;
     this.initPlayer(this.current_music.videoId);
+    
+    // Lắng nghe sự kiện phát bài hát từ lịch sử
+    window.addEventListener('play-history-song', this.handleHistorySong);
+    // Lắng nghe sự kiện đóng lịch sử
+    window.addEventListener('close-history', this.handleCloseHistory);
   },
+  
   beforeUnmount() {
     cancelAnimationFrame(this.rangeFrameID);
+    // Xóa event listener khi component bị hủy
+    window.removeEventListener('play-history-song', this.handleHistorySong);
+    window.removeEventListener('close-history', this.handleCloseHistory);
   },
+
 
   data() {
     return {
@@ -169,6 +193,7 @@ export default {
       showListSearch: false,
       videoStatusRun: false,
       videoStatus: false,
+      showHistory: false,
       current_music: {
         title: "",
         videoId: "ukHK1GVyr0I",
@@ -246,6 +271,9 @@ export default {
         this.setTitle();
         this.player.playVideo();
         this.player.pauseVideo();
+        
+        // Thêm bài hát vào lịch sử
+        this.addSongToHistory();
         
         this.player.getDuration().then((duration) => {
           this.current_music.duration = duration;
@@ -340,6 +368,43 @@ export default {
       let ContainerPlayer = document.getElementById("playerContainer");
       let iframePlayer = ContainerPlayer.firstChild;
       this.current_music.title = iframePlayer.title;
+    },
+    
+    // Thêm bài hát vào lịch sử
+    addSongToHistory() {
+      // Tạo đối tượng bài hát để lưu vào lịch sử
+      const song = {
+        videoId: this.current_music.videoId,
+        title: this.current_music.title || 'Unknown Title',
+        thumbnail: `https://i3.ytimg.com/vi/${this.current_music.videoId}/hqdefault.jpg`,
+        timestamp: new Date().toISOString()
+      };
+      
+      // Gọi mutation để thêm vào lịch sử
+      this.store.commit('addToHistory', song);
+    },
+    
+    // Xử lý sự kiện khi click vào bài hát trong lịch sử
+    handleHistorySong(event) {
+      const { videoId } = event.detail;
+      if (videoId) {
+        this.initPlayer(videoId);
+      }
+    },
+    
+    // Bật/tắt hiển thị lịch sử bài hát
+    toggleHistory() {
+      this.showHistory = !this.showHistory;
+      window.dispatchEvent(new CustomEvent('toggle-history', { 
+        detail: { show: this.showHistory }
+      }));
+    },
+    
+    // Xử lý sự kiện đóng lịch sử
+    handleCloseHistory() {
+      this.showHistory = false;
+      // Thông báo cho SideBar cập nhật trạng thái
+      window.dispatchEvent(new CustomEvent('history-closed'));
     },
     muteVolume() {
       if (this.volume != 0) {

@@ -7,4 +7,6 @@ contextBridge.exposeInMainWorld('electronAPI', { // exposeInMainWorld :  đăng 
     node: () => process.versions.node,
     chrome: () => process.versions.chrome,
     electron: () => process.versions.electron,
+    // Thêm API để bật/tắt chế độ ghim cửa sổ
+    togglePinWindow: (shouldPin) => ipcRenderer.invoke('toggle-pin-window', shouldPin)
 })
