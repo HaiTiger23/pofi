@@ -150,7 +150,7 @@ export default {
       duration,
       break_duration,
       store,
-      isPinned: true, // Mặc định cửa sổ được ghim
+      isPinned: false, // Mặc định cửa sổ không được ghim
       showHistory: false, // Mặc định ẩn lịch sử bài hát
     };
   },
