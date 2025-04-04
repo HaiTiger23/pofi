@@ -10,7 +10,8 @@
     "watch": "nodemon --exec electron .",
     "start": "electron .",
     "generate-icons": "electron-icon-builder --input=./pofi_logo.png --output=./icons",
-    "package": "npm run generate-icons && electron-packager ./ --platform=darwin --arch=x64 --out=package --overwrite=force --icon=./icons/icons/mac/icon.icns"
+    "package": "npm run generate-icons && electron-packager ./ --platform=darwin --arch=x64 --out=package --overwrite=force --icon=./icons/icons/mac/icon.icns",
+    "package-win": "npm run generate-icons && electron-packager ./ --platform=win32 --arch=x64 --out=package --overwrite=force"
   },
   "dependencies": {
     "axios": "^1.4.0",

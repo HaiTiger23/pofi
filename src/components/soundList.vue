@@ -45,17 +45,29 @@ export default {
     return {
       listSound: [
         {
-          title: "Rain",
+          title: "Mưa",
           videoID: "q76bMs-NwRk",
         },
         {
-          title: "River",
+          title: "Sông, suối",
           videoID: "IvjMgVS6kng",
         },
         {
-          title: "City",
+          title: "Thành phố",
           videoID: "Vg1mpD1BICI",
-        }
+        },
+        {
+          title: "Tiếng ồn trắng",
+          videoID: "yLOM8R6lbzg",
+        },
+        {
+          title: "Lửa",
+          videoID: "CIj-ZDSjZ2E",
+        },
+        {
+          title: "Sóng biển",
+          videoID: "bn9F19Hi1Lk",
+        },
       ],
       iframeSound: null,
       listDropSound: null,
