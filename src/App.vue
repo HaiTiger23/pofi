@@ -18,6 +18,13 @@
           <button
             class="text-white text-sm px-5 py-2.5 -mr-2 mb-2"
             type="button"
+            @click="toggleFavorites"
+          >
+            <i class="ri-heart-line"></i>
+          </button>
+          <button
+            class="text-white text-sm px-5 py-2.5 -mr-2 mb-2"
+            type="button"
             @click="toggleHistory"
           >
             <i class="ri-history-line"></i>
@@ -25,6 +32,7 @@
           <SideBar></SideBar>
         </div>
         <SongHistory></SongHistory>
+        <SongFavorites></SongFavorites>
         <!-- Pomodoro -->
         <PomoDoro :pauseVideo="pauseVideo"></PomoDoro>
         <!-- Music Play -->
@@ -96,7 +104,7 @@
                 class="flex justify-around items-center w-[80%] md:w-[40%] text-[20px]"
               >
                 <!-- <div><i class="ri-skip-back-fill"></i></div> -->
-                <i class="ri-heart-line"></i>
+                <i :class="{'ri-heart-fill text-red-500': isFavorite(current_music.videoId), 'ri-heart-line': !isFavorite(current_music.videoId)}" @click="toggleFavoriteSong"></i>
                 <div>
                   <i
                     class="ri-replay-10-line cursor-pointer"
@@ -152,6 +160,7 @@ import ListVideos from "./components/ListVideos.vue";
 import search from "./assets/js/search.js";
 import SideBar from "./components/SideBar.vue";
 import SongHistory from "./components/History.vue";
+import SongFavorites from "./components/Favorites.vue";
 import { useStore } from "vuex";
 export default {
   name: "App",
@@ -160,6 +169,7 @@ export default {
     SideBar,
     PomoDoro,
     SongHistory,
+    SongFavorites,
   },
 
   mounted() {
@@ -175,6 +185,10 @@ export default {
     window.addEventListener('play-history-song', this.handleHistorySong);
     // Lắng nghe sự kiện đóng lịch sử
     window.addEventListener('close-history', this.handleCloseHistory);
+    // Lắng nghe sự kiện click vào bài hát trong danh sách yêu thích
+    window.addEventListener('play-favorite-song', this.handleFavoriteSong);
+    // Lắng nghe sự kiện đóng danh sách yêu thích
+    window.addEventListener('favorites-closed', this.handleCloseFavorites);
   },
   
   beforeUnmount() {
@@ -182,6 +196,8 @@ export default {
     // Xóa event listener khi component bị hủy
     window.removeEventListener('play-history-song', this.handleHistorySong);
     window.removeEventListener('close-history', this.handleCloseHistory);
+    window.removeEventListener('play-favorite-song', this.handleFavoriteSong);
+    window.removeEventListener('favorites-closed', this.handleCloseFavorites);
   },
 
 
@@ -193,7 +209,8 @@ export default {
       showListSearch: false,
       videoStatusRun: false,
       videoStatus: false,
-      showHistory: false,
+      showHistory: false, // Trạng thái hiển thị lịch sử bài hát
+      showFavorites: false, // Trạng thái hiển thị danh sách bài hát yêu thích
       current_music: {
         title: "",
         videoId: "ukHK1GVyr0I",
@@ -257,6 +274,7 @@ export default {
       }
       this.current_music.videoId = videoId;
       localStorage.setItem('latestSong', videoId);
+      // Cập nhật trạng thái yêu thích khi đổi bài hát
       // Khởi tạo player
       this.player = YouTubePlayer(this.$refs.playerContainer, {
         videoId: videoId,
@@ -314,7 +332,7 @@ export default {
           this.updateRange()
         } else {
           this.player.pauseVideo();
-          clearInterval(this.rangeFrameID)
+          clearInterval(this.rangeFrameID);
         }
       }
     },
@@ -376,12 +394,18 @@ export default {
       const song = {
         videoId: this.current_music.videoId,
         title: this.current_music.title || 'Unknown Title',
+        channelTitle: 'YouTube',
         thumbnail: `https://i3.ytimg.com/vi/${this.current_music.videoId}/hqdefault.jpg`,
         timestamp: new Date().toISOString()
       };
       
       // Gọi mutation để thêm vào lịch sử
       this.store.commit('addToHistory', song);
+      
+      // Cập nhật thông tin bài hát hiện tại để hiển thị đúng
+      this.current_music.title = song.title;
+      this.current_music.channelTitle = song.channelTitle;
+      this.current_music.thumbnail = song.thumbnail;
     },
     
     // Xử lý sự kiện khi click vào bài hát trong lịch sử
@@ -395,6 +419,14 @@ export default {
     // Bật/tắt hiển thị lịch sử bài hát
     toggleHistory() {
       this.showHistory = !this.showHistory;
+      // Nếu đang mở danh sách yêu thích, đóng lại
+      if (this.showFavorites) {
+        this.showFavorites = false;
+        window.dispatchEvent(new CustomEvent('toggle-favorites', { 
+          detail: { show: false }
+        }));
+      }
+      // Phát sự kiện để thông báo cho component History
       window.dispatchEvent(new CustomEvent('toggle-history', { 
         detail: { show: this.showHistory }
       }));
@@ -403,8 +435,56 @@ export default {
     // Xử lý sự kiện đóng lịch sử
     handleCloseHistory() {
       this.showHistory = false;
-      // Thông báo cho SideBar cập nhật trạng thái
-      window.dispatchEvent(new CustomEvent('history-closed'));
+      // Thông báo cho SideBar biết lịch sử đã đóng
+      if (this.$refs.sidebar) {
+        this.$refs.sidebar.handleCloseHistory();
+      }
+    },
+    
+    // Bật/tắt hiển thị danh sách bài hát yêu thích
+    toggleFavorites() {
+      this.showFavorites = !this.showFavorites;
+      // Nếu đang mở lịch sử, đóng lại
+      if (this.showHistory) {
+        this.showHistory = false;
+        window.dispatchEvent(new CustomEvent('toggle-history', { 
+          detail: { show: false }
+        }));
+      }
+      // Phát sự kiện để thông báo cho component Favorites
+      window.dispatchEvent(new CustomEvent('toggle-favorites', { 
+        detail: { show: this.showFavorites }
+      }));
+    },
+    
+    // Xử lý sự kiện đóng danh sách yêu thích
+    handleCloseFavorites() {
+      this.showFavorites = false;
+    },
+    
+    // Xử lý sự kiện khi click vào bài hát trong danh sách yêu thích
+    handleFavoriteSong(event) {
+      const song = event.detail.song;
+      this.initPlayer(song.videoId);
+    },
+    
+    // Thêm/xóa bài hát hiện tại vào/khỏi danh sách yêu thích
+    toggleFavoriteSong() {
+      if (this.current_music.videoId) {
+        // Tạo đối tượng bài hát đầy đủ thông tin
+        const song = {
+          videoId: this.current_music.videoId,
+          title: this.current_music.title || 'Unknown Title',
+          channelTitle: 'YouTube',
+          thumbnail: `https://i3.ytimg.com/vi/${this.current_music.videoId}/hqdefault.jpg`
+        };
+        this.$store.commit('toggleFavorite', song);
+      }
+    },
+    
+    // Kiểm tra xem bài hát có trong danh sách yêu thích không
+    isFavorite(videoId) {
+      return this.$store.getters.isFavorite(videoId);
     },
     muteVolume() {
       if (this.volume != 0) {
